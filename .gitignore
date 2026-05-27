@@ -1,0 +1,13 @@
+kvault
+kvault.exe
+src/*.o
+src/*.d
+tests/*.exe
+tests/*.o
+*.aof
+*.rdb
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
