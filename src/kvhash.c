@@ -53,10 +53,12 @@ static int kvhash_resize(kv_hash *h) {
         kv_hentry *e = h->buckets[i];
         while (e) {
             kv_hentry *next = e->next;
-            size_t     idx  = fnv1a(e->field, e->flen) & (new_size - 1);
-            e->next  = nb[idx];
-            nb[idx]  = e;
-            e        = next;
+            size_t      idx  = fnv1a(e->field, e->flen) & (new_size - 1);
+            e->next = NULL;
+            kv_hentry **tail = &nb[idx];
+            while (*tail) tail = &(*tail)->next;
+            *tail = e;
+            e     = next;
         }
     }
     free(h->buckets);
@@ -99,8 +101,10 @@ int kvhash_set(kv_hash *h, const char *field, size_t flen,
     e->val->len       = vlen;
     memcpy(e->val->buf, val, vlen);
     e->val->buf[vlen] = '\0';
-    e->next           = h->buckets[idx];
-    h->buckets[idx]   = e;
+    e->next = NULL;
+    kv_hentry **tail = &h->buckets[idx];
+    while (*tail) tail = &(*tail)->next;
+    *tail = e;
     h->count++;
     return 1; // new field
 }

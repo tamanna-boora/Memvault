@@ -20,14 +20,13 @@ OBJS    = $(SRCS:.c=.o)
 ifeq ($(OS),Windows_NT)
   TARGET  = $(BIN).exe
   LDFLAGS = -lws2_32
-  RM_CMD  = del /Q
-  OBJ_PAT = src\*.o
 else
   TARGET  = $(BIN)
   LDFLAGS =
-  RM_CMD  = rm -f
-  OBJ_PAT = $(SRCDIR)/*.o
 endif
+
+RM_CMD  = rm -f
+OBJ_PAT = $(SRCDIR)/*.o
 
 all: $(TARGET)
 

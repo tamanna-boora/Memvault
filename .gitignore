@@ -1,4 +1,5 @@
-kvault
+memvault
+memvault.exe
 kvault.exe
 src/*.o
 src/*.d

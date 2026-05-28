@@ -275,6 +275,54 @@ static void cmd_hexists(kv_client *c, kv_server *s, int argc, resp_value *argv) 
     reply_int(c, val ? 1 : 0);
 }
 
+static void cmd_lrange(kv_client *c, kv_server *s, int argc, resp_value *argv) {
+    (void)argc;
+    kv_object *o = kv_get(s->kv, argv[1].v.str.data, argv[1].v.str.len);
+    if (!o) { resp_append_array_header(&c->wbuf, &c->wused, &c->wcap, 0); return; }
+    if (o->type != KV_OBJ_LIST) { reply_wrongtype(c); return; }
+    kv_list *l = (kv_list *)o->ptr;
+    int64_t len   = (int64_t)l->len;
+    int64_t start = strtoll(argv[2].v.str.data, NULL, 10);
+    int64_t stop  = strtoll(argv[3].v.str.data, NULL, 10);
+    if (start < 0) start = len + start;
+    if (stop  < 0) stop  = len + stop;
+    if (start < 0) start = 0;
+    if (stop >= len) stop = len - 1;
+    if (len == 0 || start > stop) {
+        resp_append_array_header(&c->wbuf, &c->wused, &c->wcap, 0);
+        return;
+    }
+    int64_t count = stop - start + 1;
+    resp_append_array_header(&c->wbuf, &c->wused, &c->wcap, (size_t)count);
+    kv_lnode *node = l->head;
+    for (int64_t i = 0; i < start; i++) node = node->next;
+    for (int64_t i = 0; i < count; i++, node = node->next)
+        reply_bulk(c, node->val->buf, node->val->len);
+}
+
+static void cmd_flushdb(kv_client *c, kv_server *s, int argc, resp_value *argv) {
+    (void)argc; (void)argv;
+    kvstore *fresh = kv_create();
+    if (!fresh) { reply_err(c, "ERR out of memory"); return; }
+    kv_destroy(s->kv);
+    s->kv = fresh;
+    reply_ok(c);
+}
+
+static void cmd_hgetall(kv_client *c, kv_server *s, int argc, resp_value *argv) {
+    (void)argc;
+    kv_object *o = kv_get(s->kv, argv[1].v.str.data, argv[1].v.str.len);
+    if (!o) { resp_append_array_header(&c->wbuf, &c->wused, &c->wcap, 0); return; }
+    if (o->type != KV_OBJ_HASH) { reply_wrongtype(c); return; }
+    kv_hash *h = (kv_hash *)o->ptr;
+    resp_append_array_header(&c->wbuf, &c->wused, &c->wcap, h->count * 2);
+    for (size_t i = 0; i < h->size; i++)
+        for (kv_hentry *e = h->buckets[i]; e; e = e->next) {
+            reply_bulk(c, e->field, e->flen);
+            reply_bulk(c, e->val->buf, e->val->len);
+        }
+}
+
 // parses "1kb", "2mb", "3gb" and bare digits; returns 0 or -1
 static int parse_memory_arg(const char *s, size_t slen, size_t *out) {
     if (slen == 0 || slen >= 64) return -1;
@@ -353,12 +401,16 @@ static const kv_command cmd_table[] = {
     { "lpop",     2, cmd_lpop,    1 },
     { "rpop",     2, cmd_rpop,    1 },
     { "llen",     2, cmd_llen,    0 },
+    { "lrange",   4, cmd_lrange,  0 },
+    // Db
+    { "flushdb",  1, cmd_flushdb, 1 },
     // Hash
     { "hset",    -4, cmd_hset,    1 },
     { "hget",     3, cmd_hget,    0 },
     { "hdel",    -3, cmd_hdel,    1 },
     { "hlen",     2, cmd_hlen,    0 },
     { "hexists",  3, cmd_hexists, 0 },
+    { "hgetall",  2, cmd_hgetall, 0 },
     // Config
     { "config",  -3, cmd_config,  0 },
 };
