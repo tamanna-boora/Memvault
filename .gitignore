@@ -12,3 +12,4 @@ tests/*.o
 *.swp
 *~
 .DS_Store
+memvault.exe
